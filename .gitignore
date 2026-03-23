@@ -2,7 +2,11 @@
 __pycache__/
 *.pyc
 
-data/
+data/*
+!data/.gitkeep
+!data/train/
+data/train/*
+!data/train/.gitkeep
 output/
 
 .DS_Store
