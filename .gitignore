@@ -1,0 +1,8 @@
+.venv-final/
+__pycache__/
+*.pyc
+
+data/
+output/
+
+.DS_Store

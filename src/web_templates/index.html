@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ASL LightGBM Web App</title>
+  <style>
+    :root {
+      --bg: #f5efe6;
+      --panel: #fffaf1;
+      --ink: #17202a;
+      --accent: #0f766e;
+      --accent-soft: #d8f3ef;
+      --warn: #b45309;
+      --line: #d9cbb8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, #fff8e8 0, transparent 28%),
+        linear-gradient(135deg, #efe6d5 0%, var(--bg) 45%, #efe3cf 100%);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .card {
+      background: rgba(255, 250, 241, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: 0 16px 40px rgba(67, 48, 21, 0.08);
+      padding: 22px;
+      backdrop-filter: blur(8px);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+    }
+
+    .sub {
+      margin: 0 0 18px;
+      font-size: 1.04rem;
+      line-height: 1.6;
+      color: #3a4a58;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .video-shell {
+      position: relative;
+      overflow: hidden;
+      border-radius: 20px;
+      background: #0f172a;
+      aspect-ratio: 4 / 3;
+    }
+
+    video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      display: block;
+    }
+
+    #overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    #captureCanvas {
+      display: none;
+    }
+
+    .prediction {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      padding: 14px;
+      border-radius: 18px;
+      background: white;
+      border: 1px solid var(--line);
+    }
+
+    .metric-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6c7b88;
+      margin-bottom: 8px;
+    }
+
+    .metric-value {
+      font-size: 1.55rem;
+      font-weight: 700;
+    }
+
+    .controls {
+      margin-top: 20px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 18px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 120ms ease, opacity 120ms ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+    .primary { background: var(--accent); color: white; }
+    .secondary { background: #eadfce; color: #56442c; }
+
+    .protocol h2,
+    .notes h2 {
+      margin: 0 0 14px;
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #6b7280;
+    }
+
+    .protocol p,
+    .notes p {
+      margin: 0 0 12px;
+      line-height: 1.6;
+    }
+
+    .notes strong { color: var(--warn); }
+
+    .gallery {
+      margin-top: 28px;
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .sample-card {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 8px 18px rgba(67, 48, 21, 0.06);
+    }
+
+    .sample-card img,
+    .sample-card .sample-missing {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      display: block;
+      background: #f0e7d7;
+    }
+
+    .sample-missing {
+      display: grid;
+      place-items: center;
+      color: #7b6a55;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+
+    .sample-label {
+      padding: 10px 12px;
+      text-align: center;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; }
+      .prediction { grid-template-columns: 1fr 1fr; }
+      .gallery { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 560px) {
+      .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <section class="card">
+        <h1>ASL Recognition in the Browser</h1>
+
+        <div class="video-shell">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="overlay" width="640" height="480"></canvas>
+        </div>
+        <canvas id="captureCanvas" width="320" height="240"></canvas>
+
+        <div class="controls">
+          <button id="startBtn" class="primary">Start Camera</button>
+          <button id="stopBtn" class="secondary" disabled>Stop</button>
+        </div>
+
+        <div class="prediction">
+          <div class="metric">
+            <div class="metric-label">Prediction</div>
+            <div class="metric-value" id="prediction">-</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Confidence</div>
+            <div class="metric-value" id="confidence">0.00</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Backend Latency</div>
+            <div class="metric-value" id="backendMs">0.00 ms</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Round Trip</div>
+            <div class="metric-value" id="roundTripMs">0.00 ms</div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="card protocol">
+        <h2>Threshold</h2>
+        <p><strong>{{ "%.2f"|format(min_confidence) }}</strong></p>
+      </aside>
+    </div>
+
+    <section class="card" style="margin-top: 24px;">
+      <div class="pill">A–Z Reference</div>
+      <h1 style="font-size: clamp(1.6rem, 3vw, 2.4rem); margin-bottom: 12px;">Sample Hand Signs</h1>
+
+      <div class="gallery">
+        {% for item in gallery %}
+          <div class="sample-card">
+            {% if item.has_sample %}
+              <img src="/samples/{{ item.label }}" alt="ASL sample for {{ item.label }}">
+            {% else %}
+              <div class="sample-missing">NO SAMPLE</div>
+            {% endif %}
+            <div class="sample-label">{{ item.label }}</div>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const video = document.getElementById("video");
+    const captureCanvas = document.getElementById("captureCanvas");
+    const captureCtx = captureCanvas.getContext("2d");
+    const overlay = document.getElementById("overlay");
+    const overlayCtx = overlay.getContext("2d");
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const predictionEl = document.getElementById("prediction");
+    const confidenceEl = document.getElementById("confidence");
+    const backendMsEl = document.getElementById("backendMs");
+    const roundTripMsEl = document.getElementById("roundTripMs");
+
+    const minConfidence = {{ min_confidence|tojson }};
+    const history = [];
+    const historyMax = 6;
+    let stream = null;
+    let running = false;
+    let inflight = false;
+    let lastLandmarks = [];
+    let lastConnections = [];
+    const sessionId = crypto.randomUUID();
+
+    function resizeOverlay() {
+      const rect = video.getBoundingClientRect();
+      overlay.width = Math.max(1, Math.round(rect.width));
+      overlay.height = Math.max(1, Math.round(rect.height));
+    }
+
+    function drawOverlay() {
+      overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+      if (!lastLandmarks.length) return;
+
+      overlayCtx.strokeStyle = "#7dd3fc";
+      overlayCtx.lineWidth = 3;
+      for (const [startIdx, endIdx] of lastConnections) {
+        const start = lastLandmarks[startIdx];
+        const end = lastLandmarks[endIdx];
+        if (!start || !end) continue;
+        overlayCtx.beginPath();
+        overlayCtx.moveTo((1 - start.x) * overlay.width, start.y * overlay.height);
+        overlayCtx.lineTo((1 - end.x) * overlay.width, end.y * overlay.height);
+        overlayCtx.stroke();
+      }
+
+      overlayCtx.fillStyle = "#facc15";
+      for (const point of lastLandmarks) {
+        overlayCtx.beginPath();
+        overlayCtx.arc((1 - point.x) * overlay.width, point.y * overlay.height, 4, 0, Math.PI * 2);
+        overlayCtx.fill();
+      }
+    }
+
+    function smoothPrediction(label, confidence, accepted) {
+      if (!accepted || !label || confidence < minConfidence) {
+        return history.length ? mostCommon(history) : "-";
+      }
+
+      history.push(label);
+      if (history.length > historyMax) history.shift();
+      return mostCommon(history);
+    }
+
+    function mostCommon(items) {
+      const counts = new Map();
+      for (const item of items) counts.set(item, (counts.get(item) || 0) + 1);
+      return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    }
+
+    async function startCamera() {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+      video.srcObject = stream;
+      await video.play();
+      resizeOverlay();
+      running = true;
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      loop();
+    }
+
+    function stopCamera() {
+      running = false;
+      inflight = false;
+      history.length = 0;
+      lastLandmarks = [];
+      lastConnections = [];
+      drawOverlay();
+      predictionEl.textContent = "-";
+      confidenceEl.textContent = "0.00";
+      backendMsEl.textContent = "0.00 ms";
+      roundTripMsEl.textContent = "0.00 ms";
+      if (stream) {
+        for (const track of stream.getTracks()) track.stop();
+      }
+      video.srcObject = null;
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+
+    async function sendFrame() {
+      if (!running || inflight || video.readyState < 2) return;
+
+      inflight = true;
+      captureCtx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
+      const blob = await new Promise(resolve => captureCanvas.toBlob(resolve, "image/jpeg", 0.7));
+      const form = new FormData();
+      form.append("frame", blob, "frame.jpg");
+      form.append("session_id", sessionId);
+
+      const requestStart = performance.now();
+      try {
+        const response = await fetch("/predict", { method: "POST", body: form });
+        const data = await response.json();
+        const roundTrip = performance.now() - requestStart;
+        lastLandmarks = data.landmarks || [];
+        lastConnections = data.connections || [];
+        drawOverlay();
+
+        const stable = smoothPrediction(data.prediction, data.confidence || 0, data.accepted);
+        predictionEl.textContent = data.hand_detected ? stable : "No hand";
+        confidenceEl.textContent = (data.confidence || 0).toFixed(2);
+        backendMsEl.textContent = `${((data.detect_ms || 0) + (data.classify_ms || 0)).toFixed(2)} ms`;
+        roundTripMsEl.textContent = `${roundTrip.toFixed(2)} ms`;
+      } catch (error) {
+        predictionEl.textContent = "Error";
+        lastLandmarks = [];
+        lastConnections = [];
+        drawOverlay();
+        console.error(error);
+      } finally {
+        inflight = false;
+      }
+    }
+
+    function loop() {
+      if (!running) return;
+      sendFrame();
+      setTimeout(loop, 80);
+    }
+
+    startBtn.addEventListener("click", startCamera);
+    stopBtn.addEventListener("click", stopCamera);
+    window.addEventListener("resize", () => {
+      resizeOverlay();
+      drawOverlay();
+    });
+  </script>
+</body>
+</html>
